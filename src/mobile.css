@@ -1,0 +1,30 @@
+/* Mobile Styles */
+
+@media only screen and (max-width: 768px) {
+    #logo {
+        width: 200px;
+        margin-left: auto;
+    }
+
+    #signUp {
+        margin-right: auto;
+        margin-left: 60px;
+        width: 70px;
+        height: 36px;
+        font-size: 14px;
+    }
+
+    #space {
+        margin-left: 0px;
+        width: 0px;
+    }
+
+    #heading {
+        font-size: 48px;
+        text-align: center;
+    }
+
+    #search {
+        width: 75%;
+    }
+}
