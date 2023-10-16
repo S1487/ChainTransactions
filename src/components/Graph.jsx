@@ -1,39 +1,15 @@
 import React, { useState,useRef, useEffect } from 'react';
 import * as d3 from 'd3';
-import axios from 'axios';
-
-
-const fetchData3 = async () => {
-  try {
-    const response = await axios.get('http://localhost:8000/getNeighbors/0xd90e2f925da726b50c4ed8d0fb90ad053324f31b/');
-    console.log(response.data);
-    console.log('HI3')    
-  } catch (error) {
-    console.error('Error fetching data:', error);
-  }
-}
-fetchData3()
-useEffect(() => {
-  // If walletId is null or undefined, don't fetch data
-  if (!walletId) {
-    return;
-  }
-
-  fetchData(walletId); // Fetch new data with updated walletId
-}, [walletId]);
-
-
+  
 const Graph = ({ walletId }) => {
     const graph = useRef(null);
     let previousWalletId = useRef(null);
     const filtered_data = useRef(null);
     const [selected_node , setSelectedNode] = useState(null);
     const [balancenode ,setBalance] = useState(null);
-    const [nodes, setnodes] = useState(null);
-    const [relationships, setrelationships] = useState(null)
-    const [data,setData]=useState(null);
+
   // Hardcoded array of transactions
-  /*const data = [
+  const data = [
     { sender_address: '0x123', receiver_address: '0x456',amount: "6 Eth",balance: '60 Eth' },
     { sender_address: '0x789', receiver_address: '0xabc',amount: "4.2 Eth",balance: '80 Eth' },
     { sender_address: '0x789', receiver_address: '0xa9c',amount: "4 Eth",balance: '80 Eth' },
@@ -68,9 +44,7 @@ const Graph = ({ walletId }) => {
     { sender_address: '0xa503c', receiver_address: '0x123', amount: "4 Eth", balance: '50 Eth' },
     { sender_address: '0xabcc', receiver_address: '0x123', amount: "13 Eth", balance: '50 Eth' }
     
-  ];*/
-
-  
+  ];
   
   useEffect(() => {
     //to avoid error when hiding until search has been performed
@@ -97,15 +71,7 @@ const Graph = ({ walletId }) => {
 
     const nodes = [];
     const links = [];
-    const fetchData = async () => {
-      try {
-        // Assuming you've set up your server to serve data at this endpoint
-        const response = await axios.get('http://localhost:8000/getNeighbors/0xd90e2f925da726b50c4ed8d0fb90ad053324f31b/');
-        setData(response.data); // Set the data state
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      }
-    };
+
     //populates table on change of walletId
     const fetchSelectedNodes = () => {
       const select_node = data.filter(
@@ -227,9 +193,7 @@ const Graph = ({ walletId }) => {
           .style('stroke', '#ffffff') // Add white border
           .style('stroke-width', '4px'); // Set border width
       }
-    });
-    
-
+    });    
   
     const simulation = d3.forceSimulation(graphData.nodes)
     //spreads the nodes setting distance between nodes
