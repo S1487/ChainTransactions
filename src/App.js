@@ -35,7 +35,7 @@ fetchData();
 
 const fetchData3 = async () => {
   try {
-    const response = await axios.get('http://localhost:8000/getNeighbors/0xd90e2f925da726b50c4ed8d0fb90ad053324f31b/');
+    const response = await axios.get('http://localhost:8000/getNeighbors2/0xd90e2f925da726b50c4ed8d0fb90ad053324f31b/');
     console.log(response.data);
     console.log('HI3')    
   } catch (error) {
