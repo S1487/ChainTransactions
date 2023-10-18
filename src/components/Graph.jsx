@@ -11,37 +11,37 @@ const Graph = ({ walletId }) => {
     const [balancenode ,setBalance] = useState(null);
     const [data, setData] = useState(null); // state to hold the fetched data
     const [datanodes, setDataNodes] = useState(null);
+    const [nodes, setNodes] = useState(null);
+    const [links, setLinks] = useState(null);
+
+    
+    const [graphData, setGraphData] = useState(null);
 
     // Fetch data based on walletId
     const fetchData = async (walletId) => {
       try {
         const response = await fetch(`http://localhost:8000/getNeighbors2/${walletId}`);
         const result = await response.json()
-        console.log(response)
-        console.log("fetch data log") //testing output
+        console.log("fetch data neighbors log") //testing output
         console.log(result)
         setData(result); // set the fetched data
+        console.log('fetch data setdata neighbors')
+        console.log(data)
       } catch (error) {
         console.error("An error occurred while fetching data:", error);
       }
       };
-
-    // Effect to handle data fetching
     useEffect(() => {
-      if (walletId) {
-        console.log("HITESTINGEFFECT")
-        fetchData(walletId);
-        console.log(data)
-      }
-    }, [walletId]);
+        console.log('Data state updated:', data);
+      }, [data]);
+
+
+
 
     const fetchDataNodeLinks = async (walletId) => {
       try {
         const response = await fetch(`http://localhost:8000/getNeighborsForLinks/${walletId}`);
         const result = await response.json()
-        console.log(response)
-        console.log("fetch data log") //testing output
-        console.log(result)
         setDataNodes(result); // set the fetched data
       } catch (error) {
         console.error("An error occurred while fetching data:", error);
@@ -51,12 +51,164 @@ const Graph = ({ walletId }) => {
     // Effect to handle data fetching
     useEffect(() => {
       if (walletId) {
-        console.log("HITESTINGEFFECT")
         fetchDataNodeLinks(walletId);
-        console.log(data)
+        fetchData(walletId);
       }
     }, [walletId]);
-    
+
+
+    useEffect(() => {
+      if (data) {
+        let nodesInGraph = []
+        let linksInGraph = []
+        if (!nodes)
+          {
+          }
+        else {
+           nodesInGraph = nodes
+        }
+        if (!links)
+          {
+          }
+        else {
+             linksInGraph = links
+          }
+        //take items from the transactions return and put unique items into the wallet
+        data.transactions.forEach((item) => {
+          const { from_wallet, to_wallet, transaction } = item;
+  
+          
+
+        
+          const addIfNew = (wallet) => {
+            const walletExists = nodesInGraph.some(node => node.id === wallet.addressId);
+            if (!walletExists) {
+              nodesInGraph.push({ id: wallet.addressId, ...wallet }); 
+            }
+          };
+  
+          addIfNew(from_wallet);
+          addIfNew(to_wallet);
+
+          const addLinkIfNew = (transaction,from_wallet,to_wallet) => {
+            const linkPresent = linksInGraph.some(link => link.transaction_id === transaction.transaction_id);
+            if (!linkPresent) {
+              linksInGraph.push({
+                source: from_wallet.addressId,
+                target: to_wallet.addressId,
+                transaction_id: transaction.transaction_id
+              }); }
+          };
+          addLinkIfNew(transaction,from_wallet,to_wallet)
+        });
+      setNodes(nodesInGraph)
+      setLinks(linksInGraph)
+      console.log("Links+nodes new")
+      console.log(nodesInGraph)
+      console.log(linksInGraph)
+      const container = graph.current.parentElement;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      const margin = { top: 20, right: 20, bottom: 20, left: 20 };
+
+      d3.select(graph.current).selectAll("*").remove();
+      
+      const svg = d3.select(graph.current)
+      .append('svg')
+      .attr('width', '100%')  // Set SVG width to 100% of container
+      .attr('height', '100%')  // Set SVG height to 100% of container
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .attr('preserveAspectRatio', 'xMinYMin meet')
+      .append('g');
+      
+      svg.append('svg:defs').append('svg:marker')
+        .attr('id', 'arrow')
+        .attr('viewBox', '0 -5 10 10')
+        .attr('refX', 19)
+        .attr('markerWidth', 7)
+        .attr('markerHeight', 7)
+        .attr('orient', 'auto')
+        .append('svg:path')
+        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('fill', '#37dfc5');
+
+
+      const simulation = d3.forceSimulation(nodesInGraph)
+        .force("link", d3.forceLink(linksInGraph).id(d => d.id).distance(100))
+        .force("charge", d3.forceManyBody().strength(-500))
+        .force("center", d3.forceCenter(width / 2, height / 2));
+
+        const link = svg.append("g")
+        .attr("class", "links")
+        .selectAll("path")
+        .data(linksInGraph)
+        .enter().append("path")
+        .attr('id', (d, i) => 'link' + i)
+        .attr('stroke', '#37dfc5')
+        .attr('fill', 'none')
+        .attr('marker-end', 'url(#arrow)');
+
+      const node = svg.append("g")
+        .selectAll("circle")
+        .data(nodesInGraph)
+        .enter().append("circle")
+        .attr("r",12)
+        .attr("fill", "#37dfc5");
+
+        //https://observablehq.com/@342dc9e375d75ed7/force-directed-graph-with-self-link
+        simulation.on("tick", () => {
+          link.attr("d", function(d) {
+            var x1 = d.source.x,
+                y1 = d.source.y,
+                x2 = d.target.x,
+                y2 = d.target.y,
+                dx = x2 - x1,
+                dy = y2 - y1,
+                dr = Math.sqrt(dx * dx + dy * dy),
+      
+                // Defaults for normal edge.
+                drx = dr,
+                dry = dr,
+                xRotation = 0, // degrees
+                largeArc = 0, // 1 or 0
+                sweep = 1; // 1 or 0
+      
+                // Self edge.
+                if ( x1 === x2 && y1 === y2 ) {
+                  // Fiddle with this angle to get loop oriented.
+                  xRotation = -45;
+      
+                  // Needs to be 1.
+                  largeArc = 1;
+      
+                  // Change sweep to change orientation of loop. 
+                  //sweep = 0;
+      
+                  // Make drx and dry different to get an ellipse
+                  // instead of a circle.
+                  drx = 30;
+                  dry = 30;
+                  
+                  // For whatever reason the arc collapses to a point if the beginning
+                  // and ending points of the arc are the same, so kludge it.
+                  x2 = x2 + 1;
+                  y2 = y2 + 1;
+                } 
+      
+           return "M" + x1 + "," + y1 + "A" + drx + "," + dry + " " + xRotation + "," + largeArc + "," + sweep + " " + x2 + "," + y2;
+          });
+          node
+            .attr("transform", function(d) {
+              return "translate(" + d.x + "," + d.y + ")";
+            })
+        });
+    }
+  }, [data]);
+
+
+
+
+/*
     useEffect(() => {
       if (!datanodes) return; //Hidden if we want 
       //if (!graphRef.current) return; // Don't proceed if the ref is not attached
@@ -76,13 +228,13 @@ const Graph = ({ walletId }) => {
       // Usage for adding nodes
       from_wallets.forEach((w) => {
         nodes.push({ id: w.addressId })
-        links.push({receiver_address: wallet.addressId,sender_address: w.addressId })
+        links.push({target: wallet.addressId,source: w.addressId })
       });
       
       // Usage for adding links
       to_wallets.forEach((w) => {
         nodes.push({id: w.addressId})
-        links.push({ sender_address: w.addressId, receiver_address: wallet.addressId })
+        links.push({ source: w.addressId, target: wallet.addressId })
       });
 
     console.log("NODESLINKS")
@@ -116,35 +268,35 @@ const Graph = ({ walletId }) => {
     let marker = svg.append("defs")
       .attr("class", "defs")
       .selectAll("marker")
-      .data(links, function (d) { return d.sender_address.id + "-" + d.receiver_address.id; });
-
+      .data(links, function (d) { return d.source.id + "-" + d.target.id; });
+    //https://stackoverflow.com/questions/16568313/arrows-on-links-in-d3js-force-layout/16568625
     marker = marker
-      .enter()
-      .append("marker")
-      .style("fill", "#000")
-      // Markers are IDed by link sender_address and receiver_address's name.
-      // Spaces stripped because id can't have spaces.
-      .attr("id", function (d) { return (d.sender_address.id + "-" + d.receiver_address.id).replace(/\s+/g, ''); })
-      // Since each marker is using the same data as each path, its attributes can similarly be modified.
-      // Assuming you have a "value" property in each link object, you can manipulate the opacity of a marker just like a path.
-      .style("opacity", function (d) { return Math.min(d.value, 1); })
-      .attr("viewBox", "0 -5 10 10")
-      // refX and refY are set to 0 since we will use the radius property of the receiver_address node later on, not here.
-      .attr("refX", 0) 
-      .attr("refY", 0)
-      .attr("markerWidth", 5)
-      .attr("markerHeight", 5)
-      .attr("orient", "auto")
-      .append("path")
-      .attr("d", "M0,-5L10,0L0,5")
-      .merge(marker);
-
+    .enter()
+    .append("marker")
+    .style("fill", "#000")
+    // Markers are IDed by link source and target's name.
+    // Spaces stripped because id can't have spaces.
+    .attr("id", function (d) { return (d.source.id + "-" + d.target.id).replace(/\s+/g, ''); })
+    // Since each marker is using the same data as each path, its attributes can similarly be modified.
+    // Assuming you have a "value" property in each link object, you can manipulate the opacity of a marker just like a path.
+    .style("opacity", function (d) { return Math.min(d.value, 1); })
+    .attr("viewBox", "0 -5 10 10")
+    // refX and refY are set to 0 since we will use the radius property of the target node later on, not here.
+    .attr("refX", 0) 
+    .attr("refY", 0)
+    .attr("markerWidth", 5)
+    .attr("markerHeight", 5)
+    .attr("orient", "auto")
+    .append("path")
+    .attr("d", "M0,-5L10,0L0,5")
+    .merge(marker);
+    
+    console.log("HOW FAR DID WE GET?")
     let path = svg.append("g")
-      .attr("class", "paths")
-      .selectAll("path")
-      .data(links, function (d) { return d.sender_address.id + "-" + d.receiver_address.id; });
-    // Update and exit are omitted.
-    // Enter
+    .attr("class", "paths")
+    .selectAll("path")
+    .data(links, function (d) { return d.source.id + "-" + d.target.id; });
+
     path = path
       .enter()
       .append("path")
@@ -153,26 +305,17 @@ const Graph = ({ walletId }) => {
       .style("stroke", "#000")
       .style("stroke-opacity", function (d) { return Math.min(d.value, 1); })
       // This is how to connect each path to its respective marker
-      .attr("marker-end", function(d) { return "url(#" + (d.sender_address.id + "-" + d.receiver_address.id).replace(/\s+/g, '') + ")"; })
+      .attr("marker-end", function(d) { return "url(#" + (d.source.id + "-" + d.target.id).replace(/\s+/g, '') + ")"; })
       .merge(path);
-    //draws lines between nodes 
-    /*
-    const link = svg
-      .selectAll('path')
-      .data(graphData.links)
-      .enter()
-      .append('path')
-      //from the data takes x start y start x end y end
-      .attr('d', (d) => `M ${d.sender_address.x} ${d.sender_address.y} L ${d.receiver_address.x} ${d.receiver_address.y}`)
-      .style('stroke', '#69b3a2')
-      .style('stroke-width', 5);
-    */
-      //defines tooltips then modified by mouseover
+    // Update and exit are omitted.
+    // Enter
+
     const tooltip = d3.select("body").append("div")
       .attr("class", "tooltip")
       .style("opacity", 0);
+      console.log("HOW FAR DID WE GET?")
 
-
+  console.log(graphData.nodes)
     //draws the nodes
   const node = svg
     .selectAll('circle')
@@ -186,6 +329,7 @@ const Graph = ({ walletId }) => {
     
     //mouse over trigger for tooltips
     .on('mouseover', function(event, d) {
+      console.log(d.id)
       tooltip.transition()
           .duration(200)
           .style("opacity", .9);
@@ -204,14 +348,15 @@ const Graph = ({ walletId }) => {
             .duration(500)
             .style("opacity", 0);
     })
-    console.log(data)
+    
      //on mouse click event
     .on('click', function (event, d) {
-      const select_node = nodes.id.filter(
-        (transaction) => transaction.sender_address === d.id || transaction.receiver_address === d.id
+      console.log(d.id)
+      const select_node = data.filter(
+        (transaction) => transaction.from_wallets === d.id || transaction.target === d.id
       );
       const balance = data.find(
-        (transaction) => transaction.sender_address === d.id);
+        (transaction) => transaction.source === d.id);
       setBalance(balance)
       setSelectedNode(select_node);
     
@@ -220,7 +365,7 @@ const Graph = ({ walletId }) => {
           .attr('r', 20)
           .style('stroke', 'none');
     
-      const centerNode = graphData.nodes.find((node) => node.id === d.id);
+    const centerNode = graphData.nodes.find((node) => node.id === d.id);
       if (centerNode) {
         const dx = width / 2 - centerNode.x;
         const dy = height / 2 - centerNode.y;
@@ -246,16 +391,17 @@ const Graph = ({ walletId }) => {
           .style('stroke-width', '4px'); // Set border width
       }
     });
-     console.log(graphData.nodes)             
+  
         const simulation = d3.forceSimulation(graphData.nodes)
-        .force('link', d3.forceLink(graphData.links).id(d => d.id))
-        .force('charge', d3.forceManyBody())
+        .force('links', d3.forceLink(graphData.links).id(d => d.id))
+        .force('charge', d3.forceManyBody().strength(-200))
         .force('center', d3.forceCenter(width / 2, height / 2));
 
         simulation.on('tick', () => {
         path.attr('d', function(d) {
-          // This is a simple line for now. You might want to use a more complex path for curved links, etc.
-          return `M ${d.sender_address.x},${d.sender_address.y} L ${d.receiver_address.x},${d.receiver_address.y}`;
+            var sourceNode = graphData.nodes.find(node => node.id === d.source.id);
+            var targetNode = graphData.nodes.find(node => node.id === d.target.id);
+        return `M ${sourceNode.x},${sourceNode.y} L ${targetNode.x},${targetNode.y}`;
         });
         // you will also need similar code to update the positions of the nodes
         });
@@ -281,7 +427,7 @@ const Graph = ({ walletId }) => {
       //distributes nodes and centeres them on the searched for node
     function spread_nodes_center_on_search() {
         console.log("Testing Spread Nodes")
-        path.attr('d', (d) => `M ${d.sender_address.x} ${d.sender_address.y} L ${d.receiver_address.x} ${d.receiver_address.y}`);
+        path.attr('d', (d) => `M ${d.source.x} ${d.source.y} L ${d.target.x} ${d.target.y}`);
         node.attr('cx', (d) => d.x).attr('cy', (d) => d.y);
     
         const centerNode = graphData.nodes.find((node) => node.id === walletId);
@@ -293,10 +439,10 @@ const Graph = ({ walletId }) => {
             svg.attr('transform', `translate(${margin.left + dx},${margin.top + dy})`);
         }
        
-    } */
+    } 
 
 
-  }, [data, walletId]);
+  }, [data, datanodes, walletId]);*/
 //returns the graph and datatable elements 
 if (!walletId) {
   return (<div><p>""</p></div>); // Or return some placeholder JSX
@@ -316,7 +462,7 @@ else {
           <div className="font-bold">Searched Wallet</div>
           <div className="font-bold">Balance</div>
           <div className="overflow-hidden whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
-            {balancenode.sender_address}
+            {balancenode.source}
           </div>
           <div className="border-black overflow-hidden whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
                 {balancenode.balance}
@@ -331,10 +477,10 @@ else {
               {selected_node.map((transaction, index) => (
               <>
               <div key={index + "-sender"} className="border-black overflow-hidden whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
-                {transaction.sender_address}
+                {transaction.source}
               </div>
               <div key={index + "-receiver"} className="overflow-hidden whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
-                {transaction.receiver_address}
+                {transaction.target}
               </div>
               <div key={index + "-action"} className="overflow-hidden whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
                 {transaction.amount}
@@ -356,10 +502,10 @@ export default Graph;
 {selected_node.map((transaction, index) => (
   <>
     <div key={index + "-sender"} className="border-black overflow-hidden whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
-      {transaction.sender_address}
+      {transaction.source}
     </div>
     <div key={index + "-receiver"} className="overflow-hidden whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
-      {transaction.receiver_address}
+      {transaction.target}
     </div>
     <div key={index + "-action"} className="overflow-hidden whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
       {transaction.amount}

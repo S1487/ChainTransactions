@@ -84,68 +84,51 @@ async def get_neighbors(addressId: str):
 
 
 '''
-
-class ConnectedWallets(BaseModel):
-    wallet: dict
-    from_wallets: List[dict]
-    to_wallets: List[dict]
-    transactions: List[dict]
 class ConnectedWalletsNodesLinksOnly(BaseModel):
     wallet: dict
     from_wallets: List[dict]
     to_wallets: List[dict]
 
 
+
+class ConnectedWallets(BaseModel):
+    transactions: List[dict]
+
+
 @app.get("/getNeighbors2/{addressId}", response_model=ConnectedWallets)
 async def get_neighbors(addressId: str):
     driver = GraphDatabase.driver("neo4j+ssc://7a20fee3.databases.neo4j.io:7687", auth=AUTH)
     session = driver.session()
+    transactions = []  # Initialize outside try for visibility in the entire function scope.
+    
     try:
-
-        #Returns all links
         result = session.run(
             """
-            MATCH (w1:wallet {addressId:$addressId})
-            OPTIONAL MATCH (w1)-[r1:TRANSACTION]->(w2:wallet)
-            OPTIONAL MATCH (w3:wallet)-[r2:TRANSACTION]->(w1)
-            RETURN w1, r1, w2, r2, w3
+            MATCH (w:wallet)-[r:TRANSACTION]-(other:wallet)
+            WHERE w.addressId = $addressId
+            RETURN r, startNode(r) as source_wallet, endNode(r) as target_wallet
             """,
             {"addressId": addressId},
         )
 
-        #returns only single link each way
-
-        
-        wallet = {}
-        from_wallets = []
-        to_wallets = []
-        transactions = [] 
-
-        # Process the results
         for record in result:
-            wallet = record["w1"]._properties
-            print(record["r1"], record["r2"])
-            # outgoing transactions
-            if record["w2"] and record["r1"]:
-                to_wallets.append(record["w2"]._properties)
-                transactions.append(record["r1"]._properties) 
+            transaction = record["r"]._properties
+            source_wallet = record["source_wallet"]._properties
+            target_wallet = record["target_wallet"]._properties
 
+            from_wallet = source_wallet if source_wallet["addressId"] == addressId else target_wallet
+            to_wallet = target_wallet if source_wallet["addressId"] == addressId else source_wallet
 
-            # incoming transactions
-            if record["w3"] and record["r2"]:
-                from_wallets.append(record["w3"]._properties)
-                transactions.append(record["r2"]._properties) 
-
-        return ConnectedWallets(
-            wallet=wallet,
-            from_wallets=from_wallets,
-            to_wallets=to_wallets,
-            transactions=transactions  # Return this if you want to include transaction details delete if not
-        )
+            transactions.append({
+                "transaction": transaction,
+                "from_wallet": from_wallet,
+                "to_wallet": to_wallet
+            })
 
     finally:
         session.close()
 
+    return ConnectedWallets(transactions=transactions)
 @app.get("/getNeighborsForLinks/{addressId}", response_model=ConnectedWalletsNodesLinksOnly)
 async def getNeighborsForLinks(addressId: str):
     driver = GraphDatabase.driver("neo4j+ssc://7a20fee3.databases.neo4j.io:7687", auth=AUTH)
@@ -175,7 +158,6 @@ async def getNeighborsForLinks(addressId: str):
         # Process the results
         for record in result:
             wallet = record["w1"]._properties
-            print(record["r1"], record["r2"])
             # outgoing transactions
             if record["w2"] and record["r1"]:
                 if record['w2'] not in to_wallet_list_temp:

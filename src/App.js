@@ -18,13 +18,10 @@ function App() {
     
   );
 }
-
+/*
 const fetchData = async () => {
   try {
     const response = await axios.get('http://localhost:8000/getGDBAddr/');
-    console.log(response.data);
-    console.log('HI1')
-
     
   } catch (error) {
     console.error('Error fetching data:', error);
@@ -56,5 +53,6 @@ const fetchData4 = async () => {
   }
 }
 fetchData4();
+*/
 
 export default App;
