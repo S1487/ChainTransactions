@@ -124,17 +124,17 @@ const Graph = ({ walletId }) => {
       svg.append('svg:defs').append('svg:marker')
         .attr('id', 'arrow')
         .attr('viewBox', '0 -5 10 10')
-        .attr('refX', 19)
-        .attr('markerWidth', 7)
-        .attr('markerHeight', 7)
+        .attr('refX', 15)
+        .attr('markerWidth', 15)
+        .attr('markerHeight', 15)
         .attr('orient', 'auto')
         .append('svg:path')
-        .attr('d', 'M0,-5L10,0L0,5')
+        .attr('d', 'M0,-5L10,0L0,5') 
         .attr('fill', '#37dfc5');
-
+      
 
       const simulation = d3.forceSimulation(nodesInGraph)
-        .force("link", d3.forceLink(linksInGraph).id(d => d.id).distance(100))
+        .force("link", d3.forceLink(linksInGraph).id(d => d.id).distance(60))
         .force("charge", d3.forceManyBody().strength(-500))
         .force("center", d3.forceCenter(width / 2, height / 2));
 
@@ -148,12 +148,54 @@ const Graph = ({ walletId }) => {
         .attr('fill', 'none')
         .attr('marker-end', 'url(#arrow)');
 
+
+        //tooltip definition
+      const tooltip = d3.select("body").append("div")
+        .attr("class", "tooltip")
+        .style("opacity", 0);
+        //define the node
       const node = svg.append("g")
         .selectAll("circle")
         .data(nodesInGraph)
-        .enter().append("circle")
+        .enter().append("g")
+        
+        //Node functionality click/Expand
+        .on('mouseover', function(event, d) {
+          console.log(d.id)
+          tooltip.transition()
+              .duration(200)
+              .style("opacity", .9);
+      
+          tooltip.html("Wallet ID: " + d.id)
+              .style("left", (event.pageX + 10) + "px")
+              .style("top", (event.pageY - 10) + "px")
+              .style("z-index", 9999); // Ensure it's on top
+        })
+
+        .on("mouseout", function(event, d) {
+          tooltip.transition()
+              .duration(0)
+              .style("opacity", 0);
+      })
+      .on('click', function (event, d) {
+        console.log(d.id)
+        fetchData(d.id)
+        tooltip.transition()
+        .duration(0)
+        .style("opacity", 0);}
+        
+        );
+        ;
+      node.append("circle")
         .attr("r",12)
         .attr("fill", "#37dfc5");
+
+      node.append("text")
+        .text(d => d.id.substring(0, 5))
+        .attr('x', -8.5)
+        .attr('y', 3)
+        .attr("class", "node-text");
+      
 
         //https://observablehq.com/@342dc9e375d75ed7/force-directed-graph-with-self-link
         simulation.on("tick", () => {
@@ -174,9 +216,9 @@ const Graph = ({ walletId }) => {
                 sweep = 1; // 1 or 0
       
                 // Self edge.
+                //for looping one used the above reference
                 if ( x1 === x2 && y1 === y2 ) {
                   // Fiddle with this angle to get loop oriented.
-                  xRotation = -45;
       
                   // Needs to be 1.
                   largeArc = 1;
@@ -202,6 +244,8 @@ const Graph = ({ walletId }) => {
               return "translate(" + d.x + "," + d.y + ")";
             })
         });
+
+        
     }
   }, [data]);
 
