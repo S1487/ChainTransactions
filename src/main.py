@@ -32,6 +32,8 @@ async def funcTest():
     driver.verify_connectivity()
     return gdb_address
 
+
+
 @app.get("/")
 async def funcTest1():
     return "Hello, this is fastAPI data"
@@ -94,6 +96,9 @@ class ConnectedWalletsNodesLinksOnly(BaseModel):
 class ConnectedWallets(BaseModel):
     transactions: List[dict]
 
+class Wallet(BaseModel):
+    wallet: dict
+
 
 @app.get("/getNeighbors2/{addressId}", response_model=ConnectedWallets)
 async def get_neighbors(addressId: str):
@@ -129,6 +134,7 @@ async def get_neighbors(addressId: str):
         session.close()
 
     return ConnectedWallets(transactions=transactions)
+
 @app.get("/getNeighborsForLinks/{addressId}", response_model=ConnectedWalletsNodesLinksOnly)
 async def getNeighborsForLinks(addressId: str):
     driver = GraphDatabase.driver("neo4j+ssc://7a20fee3.databases.neo4j.io:7687", auth=AUTH)
@@ -179,6 +185,37 @@ async def getNeighborsForLinks(addressId: str):
 
     finally:
         session.close()
+
+@app.get("/getWallet/{addressId}", response_model=Wallet)
+async def getWallet(addressId: str):
+    driver = GraphDatabase.driver("neo4j+ssc://7a20fee3.databases.neo4j.io:7687", auth=AUTH)
+    session = driver.session()
+    try:
+
+        #Returns all links
+        result = session.run(
+            """
+            MATCH (w1:wallet {addressId:$addressId})
+            RETURN w1
+            """,
+            {"addressId": addressId},
+        )
+
+        #returns only single link each way
+
+        
+        wallet = {}
+
+        # Process the results
+        for record in result:
+            wallet = record["w1"]._properties
+       
+        return Wallet(
+            wallet=wallet
+        )
+
+    finally:
+        session.close()
 '''
     try:
         result = session.run(
@@ -210,6 +247,8 @@ async def getNeighborsForLinks(addressId: str):
         if session:
             session.close()
 '''
+
+
 @app.get("/test/")
 async def funcTesttest():
     driver = GraphDatabase.driver("neo4j+ssc://7a20fee3.databases.neo4j.io:7687", auth=AUTH)

@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import * as d3 from 'd3';
-
+import Snackbar from '@mui/material/Snackbar';
+import Alert from '@mui/material/Alert';
   
 const Graph = ({ walletId }) => {
-
+    const [open, setOpen] = useState(false);
     const graph = useRef(null);
     let previousWalletId = useRef(null);
     const filtered_data = useRef(null);
@@ -29,30 +30,50 @@ const Graph = ({ walletId }) => {
         console.log(data)
       } catch (error) {
         console.error("An error occurred while fetching data:", error);
+        alert("An error occurred while fetching data.");
+        setOpen(true);
       }
       };
     useEffect(() => {
         console.log('Data state updated:', data);
+        
       }, [data]);
 
 
+      
 
-
+      const fetchgetWallet = async (walletId) => {
+        try {
+          const response = await fetch(`http://localhost:8000/getWallet/${walletId}`);
+          const result = await response.json()
+          setBalance(result); // set the fetched data
+        } catch (error) {
+          console.error("An error occurred while fetching the wallet:", error);
+          alert("An error occurred while fetching Node Links.");
+          setOpen(true);
+        }
+        };
     const fetchDataNodeLinks = async (walletId) => {
       try {
         const response = await fetch(`http://localhost:8000/getNeighborsForLinks/${walletId}`);
         const result = await response.json()
         setDataNodes(result); // set the fetched data
       } catch (error) {
-        console.error("An error occurred while fetching data:", error);
+        console.error("An error occurred while fetching Node Links:", error);
+        alert("An error occurred while fetching Node Links.");
+        setOpen(true);
       }
       };
+
 
     // Effect to handle data fetching
     useEffect(() => {
       if (walletId) {
         fetchDataNodeLinks(walletId);
         fetchData(walletId);
+        fetchgetWallet(walletId)
+        setNodes(null)
+        setLinks(null)
       }
     }, [walletId]);
 
@@ -132,12 +153,13 @@ const Graph = ({ walletId }) => {
         .attr('d', 'M0,-5L10,0L0,5') 
         .attr('fill', '#37dfc5');
       
-
+        // set forces shifting an dmoving nodes
       const simulation = d3.forceSimulation(nodesInGraph)
         .force("link", d3.forceLink(linksInGraph).id(d => d.id).distance(60))
         .force("charge", d3.forceManyBody().strength(-500))
         .force("center", d3.forceCenter(width / 2, height / 2));
-
+        //link class as paths between nodes
+        //arrow marker for endpoint
         const link = svg.append("g")
         .attr("class", "links")
         .selectAll("path")
@@ -165,18 +187,19 @@ const Graph = ({ walletId }) => {
           tooltip.transition()
               .duration(200)
               .style("opacity", .9);
-      
+      //add in tooltip
           tooltip.html("Wallet ID: " + d.id)
               .style("left", (event.pageX + 10) + "px")
               .style("top", (event.pageY - 10) + "px")
               .style("z-index", 9999); // Ensure it's on top
         })
-
+          //hide tooltip
         .on("mouseout", function(event, d) {
           tooltip.transition()
               .duration(0)
               .style("opacity", 0);
       })
+      //on click both hide tooltip and fetch the new set of data to work into the graph
       .on('click', function (event, d) {
         console.log(d.id)
         fetchData(d.id)
@@ -186,10 +209,11 @@ const Graph = ({ walletId }) => {
         
         );
         ;
+        //append nodes
       node.append("circle")
         .attr("r",12)
         .attr("fill", "#37dfc5");
-
+        //node labels
       node.append("text")
         .text(d => d.id.substring(0, 5))
         .attr('x', -8.5)
@@ -488,12 +512,16 @@ const Graph = ({ walletId }) => {
 
   }, [data, datanodes, walletId]);*/
 //returns the graph and datatable elements 
+console.log("BalanceNODE!")
+console.log(balancenode)
+console.log("DATA!")
+console.log(data)
 if (!walletId) {
   return (<div><p>""</p></div>); // Or return some placeholder JSX
 }
 else {
   return (
-
+  
     //output the graph
     <div className="flex flex-col justify-start items-center w-full h-fit">
       <div
@@ -505,33 +533,49 @@ else {
         <div className="grid grid-cols-2 gap-6 h-[10vh] w-4/6 mt-6 bg-[#ffffffFF] border-[#ffffffee] rounded-lg place-items-center p-6">
           <div className="font-bold">Searched Wallet</div>
           <div className="font-bold">Balance</div>
-          <div className="overflow-hidden whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
-            {balancenode.source}
+          <div className="overflow-hidden whitespace-nowrap bg-[#ffffffFF] border-[#ffffffee] text-overflow[ellipsis] max-w-[100px]">
+            {balancenode.wallet.addressId}
           </div>
-          <div className="border-black overflow-hidden whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
-                {balancenode.balance}
+          <div className="border-black overflow-hidden whitespace-nowrap text-overflow[ellipsis] max-w-[50px]">
+                {balancenode.wallet.balance}
+          </div>
+          <div className="border-black overflow-hidden whitespace-nowrap text-overflow[ellipsis] max-w-[50px]">
+                {balancenode.wallet.type}
           </div>
         </div>
-      )}*/
-        {selected_node && (
-          <div className="grid grid-cols-3 gap-4 w-4/6 mt-6 bg-[#ffffffFF] border-[#ffffffee] rounded-lg place-items-center p-6 mb-10">
-            <div className="font-bold">Sender Address</div>
-            <div className="font-bold">Receiver Address</div>
-            <div className="font-bold">Transaction</div>
-              {selected_node.map((transaction, index) => (
-              <>
-              <div key={index + "-sender"} className="border-black overflow-hidden whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
-                {transaction.source}
-              </div>
-              <div key={index + "-receiver"} className="overflow-hidden whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
-                {transaction.target}
-              </div>
-              <div key={index + "-action"} className="overflow-hidden whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
-                {transaction.amount}
-              </div>
-              </>
-              ))}
+      )}
+    {data && (
+    <div className="grid grid-cols-6 gap-4 w-4/6 mt-6 bg-[#ffffffFF] border-[#ffffffee] rounded-lg place-items-center p-6 mb-10">
+      <div className="font-bold">Sender Address</div>
+      <div className="font-bold">Receiver Address</div>
+      <div className="font-bold">Transaction Value</div>
+      <div className="font-bold">Gas</div>
+      <div className="font-bold">Gas Price</div>
+      <div className="font-bold">Transaction Fee</div>
+      
+      {data.transactions.map((transaction, index) => (
+        <React.Fragment key={index}>
+          <div className="border-black bg-[#ffffffFF] border-[#ffffffee] overflow-hidden whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
+            {transaction.from_wallet.addressId}
           </div>
+          <div className="overflow-hidden bg-[#ffffffFF] border-[#ffffffee] whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
+            {transaction.to_wallet.addressId}
+          </div>
+          <div className="overflow-hidden bg-[#ffffffFF] border-[#ffffffee] whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
+            {transaction.transaction.value}
+          </div>
+          <div className="overflow-hidden bg-[#ffffffFF] border-[#ffffffee] whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
+            {transaction.transaction.gas}
+          </div>
+          <div className="overflow-hidden bg-[#ffffffFF] border-[#ffffffee] whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
+            {transaction.transaction.gas_price}
+          </div>
+          <div className="overflow-hidden bg-[#ffffffFF] border-[#ffffffee] whitespace-nowrap text-overflow[ellipsis] max-w-[100px]">
+            {transaction.transaction.transaction_fee}
+          </div>
+        </React.Fragment>
+      ))}
+    </div>
         )}
     </div>
   );
